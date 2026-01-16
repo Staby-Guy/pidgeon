@@ -144,6 +144,116 @@ export async function sendMessage(roomId: string, message: Message): Promise<voi
   });
 }
 
+export async function updateMessage(
+  roomId: string,
+  messageId: string,
+  timestamp: number,
+  newContent: string
+): Promise<boolean> {
+  const redis = getRedis();
+  const key = `chat:${roomId}:messages`;
+
+  console.log('[Redis] updateMessage params:', { key, timestamp, messageId });
+
+  // 1. Get messages at this exact timestamp (should be only one usually, but could be collision)
+  const messages = await redis.zrange(key, timestamp, timestamp, { byScore: true });
+  console.log('[Redis] updateMessage found:', messages.length, 'messages');
+
+  // 2. Find the specific message by ID
+  let targetMessage: Message | null = null;
+  let oldMember: string | null = null;
+
+  for (const item of messages) {
+    let msg: Message | null = null;
+    let memberStr: string = '';
+
+    if (typeof item === 'string') {
+      try {
+        msg = JSON.parse(item) as Message;
+        memberStr = item;
+      } catch {
+        continue;
+      }
+    } else if (typeof item === 'object' && item !== null) {
+      msg = item as Message;
+      memberStr = JSON.stringify(item); // Re-stringify to remove it correctly if needed
+      // Note: usage of zrem with string might fail if it was stored as string but returned as object.
+      // Usually upstash returns what was stored. If we stored string, we get string. 
+      // But let's be safe. If we get an object, it means it was deserialized. 
+      // To remove it by member, we might need the original string OR the value.
+    }
+
+    if (msg && msg.id === messageId) {
+      targetMessage = msg;
+      oldMember = (typeof item === 'string') ? item : JSON.stringify(item);
+      break;
+    }
+  }
+
+  if (!targetMessage || !oldMember) return false;
+
+  // 3. Create updated message
+  const updatedMessage: Message & { isEdited?: boolean } = {
+    ...targetMessage,
+    content: newContent,
+    isEdited: true,
+  };
+
+  // 4. Remove old and add new in a transaction
+  const pipeline = redis.pipeline();
+  pipeline.zrem(key, oldMember);
+  pipeline.zadd(key, {
+    score: timestamp, // Keep original timestamp to maintain order
+    member: JSON.stringify(updatedMessage),
+  });
+  await pipeline.exec();
+
+  return true;
+}
+
+export async function deleteMessage(
+  roomId: string,
+  messageId: string,
+  timestamp: number
+): Promise<boolean> {
+  const redis = getRedis();
+  const key = `chat:${roomId}:messages`;
+
+  console.log('[Redis] deleteMessage params:', { key, timestamp, messageId });
+
+  // 1. Get messages at this exact timestamp
+  const messages = await redis.zrange(key, timestamp, timestamp, { byScore: true });
+  console.log('[Redis] deleteMessage found:', messages.length, 'messages');
+
+  // 2. Find the specific message by ID
+  let oldMember: string | null = null;
+
+  for (const item of messages) {
+    let msg: Message | null = null;
+
+    if (typeof item === 'string') {
+      try {
+        msg = JSON.parse(item) as Message;
+      } catch {
+        continue;
+      }
+    } else if (typeof item === 'object' && item !== null) {
+      msg = item as Message;
+    }
+
+    if (msg && msg.id === messageId) {
+      oldMember = (typeof item === 'string') ? item : JSON.stringify(item);
+      break;
+    }
+  }
+
+  if (!oldMember) return false;
+
+  // 3. Remove it
+  await redis.zrem(key, oldMember);
+  return true;
+}
+
 export async function getMessages(
   roomId: string,
   limit: number = 50,

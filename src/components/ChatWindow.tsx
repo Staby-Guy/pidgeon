@@ -64,24 +64,29 @@ export default function ChatWindow({
 
         channel.bind(PUSHER_EVENTS.NEW_MESSAGE, (data: Message & { optimisticId?: string }) => {
             setMessages((prev) => {
-                // Check if we have this message already (by real ID)
-                if (prev.some((m) => m.id === data.id)) {
-                    return prev;
-                }
-
-                // Check if we have an optimistic version of this message
+                if (prev.some((m) => m.id === data.id)) return prev;
                 if (data.optimisticId) {
                     const optimisticExists = prev.some((m) => m.id === data.optimisticId);
                     if (optimisticExists) {
-                        // Replace the optimistic message with the real one
                         return prev.map((m) =>
                             m.id === data.optimisticId ? { ...data, senderUsername: m.senderUsername } : m
                         );
                     }
                 }
-
                 return [...prev, data];
             });
+        });
+
+        channel.bind(PUSHER_EVENTS.MESSAGE_UPDATED, (data: { id: string; content: string; timestamp: number }) => {
+            console.log('[ChatWindow] Received MESSAGE_UPDATED:', data);
+            setMessages((prev) =>
+                prev.map((m) => (m.id === data.id ? { ...m, content: data.content, isEdited: true } : m))
+            );
+        });
+
+        channel.bind(PUSHER_EVENTS.MESSAGE_DELETED, (data: { id: string }) => {
+            console.log('[ChatWindow] Received MESSAGE_DELETED:', data);
+            setMessages((prev) => prev.filter((m) => m.id !== data.id));
         });
 
         return () => {
@@ -89,6 +94,38 @@ export default function ChatWindow({
             pusher.unsubscribe(getPrivateChatChannel(roomId));
         };
     }, [roomId]);
+
+    const handleEdit = async (id: string, timestamp: number, newContent: string) => {
+        // Optimistic update
+        setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, content: newContent, isEdited: true } : m))
+        );
+
+        try {
+            const res = await fetch('/api/messages', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roomId, messageId: id, timestamp, content: newContent }),
+            });
+            if (!res.ok) throw new Error('Failed to edit');
+        } catch (error) {
+            console.error('Edit error:', error);
+            // Revert could be here, but simpler to rely on refresh/pusher if failed.
+        }
+    };
+
+    const handleDelete = async (id: string, timestamp: number) => {
+        // Optimistic update
+        setMessages((prev) => prev.filter((m) => m.id !== id));
+
+        try {
+            await fetch(`/api/messages?roomId=${roomId}&messageId=${id}&timestamp=${timestamp}`, {
+                method: 'DELETE',
+            });
+        } catch (error) {
+            console.error('Delete error:', error);
+        }
+    };
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -187,6 +224,8 @@ export default function ChatWindow({
                                 message={msg}
                                 isOwn={msg.senderId === session?.user?.id}
                                 username={msg.senderId === session?.user?.id ? session.user.username : recipientUsername}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
                             />
                         ))
                     )}

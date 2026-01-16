@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { nanoid } from 'nanoid';
 import { authOptions } from '@/lib/auth';
-import { getMessages, sendMessage, getRoomId, isContact, incrementUnreadCount, resetUnreadCount } from '@/lib/redis';
+import { getMessages, sendMessage, getRoomId, isContact, incrementUnreadCount, resetUnreadCount, updateMessage, deleteMessage } from '@/lib/redis';
 import { pusherServer, getPrivateChatChannel, getUserChannel, PUSHER_EVENTS } from '@/lib/pusher';
 
 // GET /api/messages?roomId=xxx&limit=50&before=timestamp
@@ -144,5 +144,104 @@ export async function POST(request: NextRequest) {
             { error: 'Internal server error' },
             { status: 500 }
         );
+    }
+}
+
+// PATCH /api/messages - Update a message
+export async function PATCH(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { roomId, messageId, timestamp, content } = body;
+
+        console.log('[API] PATCH Request:', { roomId, messageId, timestamp, content });
+
+        if (!roomId || !messageId || !timestamp || !content) {
+            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+        }
+
+        // Verify ownership
+        const [userId1, userId2] = roomId.split('_');
+        if (userId1 !== session.user.id && userId2 !== session.user.id) {
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
+        // Attempt update
+        const success = await updateMessage(roomId, messageId, timestamp, content.trim());
+
+        if (!success) {
+            return NextResponse.json({ error: 'Message not found or update failed' }, { status: 404 });
+        }
+
+        // Broadcast update
+        await pusherServer.trigger(
+            getPrivateChatChannel(roomId),
+            PUSHER_EVENTS.MESSAGE_UPDATED,
+            {
+                id: messageId,
+                roomId,
+                content: content.trim(),
+                senderId: session.user.id,
+                timestamp,
+            }
+        );
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Update message error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+// DELETE /api/messages - Delete a message
+export async function DELETE(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const roomId = searchParams.get('roomId');
+        const messageId = searchParams.get('messageId');
+        const timestamp = searchParams.get('timestamp');
+
+        console.log('[API] DELETE Request:', { roomId, messageId, timestamp });
+
+        if (!roomId || !messageId || !timestamp) {
+            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+        }
+
+        // Verify ownership
+        const [userId1, userId2] = roomId.split('_');
+        if (userId1 !== session.user.id && userId2 !== session.user.id) {
+            return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        }
+
+        // Attempt delete
+        const success = await deleteMessage(roomId, messageId, parseInt(timestamp));
+
+        if (!success) {
+            return NextResponse.json({ error: 'Message not found or delete failed' }, { status: 404 });
+        }
+
+        // Broadcast delete
+        await pusherServer.trigger(
+            getPrivateChatChannel(roomId),
+            PUSHER_EVENTS.MESSAGE_DELETED,
+            {
+                id: messageId,
+                roomId,
+            }
+        );
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Delete message error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

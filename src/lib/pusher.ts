@@ -35,4 +35,6 @@ export const PUSHER_EVENTS = {
     CONTACT_ADDED: 'contact-added',
     TYPING: 'typing',
     INCOMING_MESSAGE: 'incoming-message',
+    MESSAGE_UPDATED: 'message-updated',
+    MESSAGE_DELETED: 'message-deleted',
 } as const;
