@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
@@ -13,6 +13,13 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  themeColor: '#030014',
+  initialScale: 1,
+  width: 'device-width',
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Cyber Pidgeon | Real-Time Chat for Students",
