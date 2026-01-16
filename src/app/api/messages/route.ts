@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { nanoid } from 'nanoid';
 import { authOptions } from '@/lib/auth';
-import { getMessages, sendMessage, getRoomId, isContact } from '@/lib/redis';
+import { getMessages, sendMessage, getRoomId, isContact, incrementUnreadCount, resetUnreadCount } from '@/lib/redis';
 import { pusherServer, getPrivateChatChannel, getUserChannel, PUSHER_EVENTS } from '@/lib/pusher';
 
 // GET /api/messages?roomId=xxx&limit=50&before=timestamp
@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
             limit,
             before ? parseInt(before) : undefined
         );
+
+        // Reset unread count for this room
+        await resetUnreadCount(session.user.id, roomId);
 
         return NextResponse.json({ messages });
     } catch (error) {
@@ -118,6 +121,9 @@ export async function POST(request: NextRequest) {
         // Notify recipient globally (for sidebar update)
         // Only notify if they are not the sender (obviously)
         if (recipientId !== session.user.id) {
+            // Increment unread count for recipient
+            await incrementUnreadCount(recipientId, roomId);
+
             await pusherServer.trigger(
                 getUserChannel(recipientId),
                 PUSHER_EVENTS.INCOMING_MESSAGE,

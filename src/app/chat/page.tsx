@@ -12,6 +12,7 @@ interface Contact {
     username: string;
     avatar?: string;
     roomId: string;
+    unreadCount?: number;
     latestMessage?: {
         content: string;
         timestamp: number;

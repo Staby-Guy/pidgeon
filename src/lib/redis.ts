@@ -189,3 +189,29 @@ export async function getLatestMessage(roomId: string): Promise<Message | null> 
   }
   return messageData as Message;
 }
+// ============================================
+// Unread Message Operations
+// ============================================
+
+export async function incrementUnreadCount(userId: string, roomId: string): Promise<void> {
+  const redis = getRedis();
+  await redis.hincrby(`user:${userId}:unread`, roomId, 1);
+}
+
+export async function resetUnreadCount(userId: string, roomId: string): Promise<void> {
+  const redis = getRedis();
+  await redis.hdel(`user:${userId}:unread`, roomId);
+}
+
+export async function getUnreadCounts(userId: string): Promise<Record<string, number>> {
+  const redis = getRedis();
+  const unreadCounts = await redis.hgetall(`user:${userId}:unread`);
+  if (!unreadCounts) return {};
+
+  // Convert string values to numbers (Redis returns strings for hash values)
+  const result: Record<string, number> = {};
+  for (const [roomId, count] of Object.entries(unreadCounts)) {
+    result[roomId] = Number(count);
+  }
+  return result;
+}

@@ -7,7 +7,8 @@ import {
     getUserById,
     isContact,
     getRoomId,
-    getLatestMessage
+    getLatestMessage,
+    getUnreadCounts
 } from '@/lib/redis';
 import { pusherServer, getUserChannel, PUSHER_EVENTS } from '@/lib/pusher';
 
@@ -26,6 +27,8 @@ export async function GET() {
         console.log('Fetching contacts for user:', session.user.id);
         const contactIds = await getContacts(session.user.id);
         console.log('Contact IDs:', contactIds);
+
+        const unreadCounts = await getUnreadCounts(session.user.id);
 
         const contacts = await Promise.all(
             contactIds.map(async (contactId) => {
@@ -49,6 +52,7 @@ export async function GET() {
                             isOwn: latestMessage.senderId === session.user.id,
                         } : null,
                         roomId,
+                        unreadCount: unreadCounts[roomId] || 0,
                     };
                 } catch (err) {
                     console.error('Error fetching contact details for:', contactId, err);

@@ -14,6 +14,7 @@ interface Contact {
     username: string;
     avatar?: string;
     roomId: string;
+    unreadCount?: number;
     latestMessage?: {
         content: string;
         timestamp: number;
@@ -38,6 +39,23 @@ export default function Sidebar({ contacts, isLoading, onContactsChange }: Sideb
         ? pathname.split('/chat/')[1]
         : null;
 
+    // Global real-time updates for sidebar
+    const [localContacts, setLocalContacts] = useState<Contact[]>(contacts);
+    const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
+
+    // Sync local contacts and unread status with props when they change
+    useEffect(() => {
+        setLocalContacts(contacts);
+
+        // Initialize unread rooms from contacts
+        const initialUnread = new Set<string>();
+        contacts.forEach(contact => {
+            if (contact.unreadCount && contact.unreadCount > 0 && contact.roomId !== activeRoomId) {
+                initialUnread.add(contact.roomId);
+            }
+        });
+        setUnreadRooms(initialUnread);
+    }, [contacts, activeRoomId]);
     const handleCopyUsername = useCallback(() => {
         if (session?.user?.username) {
             navigator.clipboard.writeText(session.user.username);
@@ -71,14 +89,7 @@ export default function Sidebar({ contacts, isLoading, onContactsChange }: Sideb
         router.push(`/chat/${roomId}`);
     };
 
-    // Global real-time updates for sidebar
-    const [localContacts, setLocalContacts] = useState<Contact[]>(contacts);
-    const [unreadRooms, setUnreadRooms] = useState<Set<string>>(new Set());
 
-    // Sync local contacts with props when they change
-    useEffect(() => {
-        setLocalContacts(contacts);
-    }, [contacts]);
 
     useEffect(() => {
         if (!session?.user?.id) return;
