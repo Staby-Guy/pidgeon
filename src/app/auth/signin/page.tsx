@@ -2,13 +2,16 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Button, Input, Card } from '@/components/ui';
 
 export default function SignInPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get('callbackUrl');
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -29,8 +32,8 @@ export default function SignInPage() {
             if (result?.error) {
                 setError('Invalid email or password');
             } else {
-                router.push('/chat');
                 router.refresh();
+                router.push(callbackUrl || '/chat');
             }
         } catch {
             setError('Something went wrong. Please try again.');
