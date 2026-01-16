@@ -91,14 +91,14 @@ export default function ChatPage() {
             />
 
             {/* Main Content - Empty State */}
-            <main className="flex-1 flex items-center justify-center">
+            <main className="flex-1 hidden md:flex items-center justify-center">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="text-center"
                 >
-                    <div className="w-20 h-20 rounded-2xl bg-dark-card flex items-center justify-center mx-auto mb-6">
-                        <span className="text-4xl">🐦</span>
+                    <div className="w-24 h-24 rounded-2xl bg-dark-card flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(204,255,0,0.1)]">
+                        <img src="/logo.png" alt="Cyber Pidgeon" className="w-14 h-14 object-contain" />
                     </div>
                     <h2 className="text-2xl font-bold text-pure-white mb-2">
                         Welcome to Cyber Pidgeon

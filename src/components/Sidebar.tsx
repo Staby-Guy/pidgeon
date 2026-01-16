@@ -137,7 +137,12 @@ export default function Sidebar({ contacts, isLoading, onContactsChange }: Sideb
     }, [session?.user?.id, activeRoomId, onContactsChange]);
 
     return (
-        <aside className="w-80 h-screen flex flex-col border-r border-dark-border bg-dark-surface/50">
+        <aside
+            className={`
+                flex flex-col border-r border-dark-border bg-dark-surface/50 h-screen
+                ${activeRoomId ? 'hidden md:flex w-[320px]' : 'w-full md:w-[320px]'}
+            `}
+        >
             {/* Profile Section */}
             <div className="p-4 border-b border-dark-border">
                 <Card variant="glass" className="p-4">
@@ -216,7 +221,7 @@ export default function Sidebar({ contacts, isLoading, onContactsChange }: Sideb
             <div className="flex-1 overflow-y-auto p-2">
                 {isLoading ? (
                     <ChatListSkeleton count={5} />
-                ) : contacts.length === 0 ? (
+                ) : localContacts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-4">
                         <div className="w-12 h-12 rounded-full bg-dark-card flex items-center justify-center mb-3">
                             <span className="text-xl">👥</span>
@@ -243,9 +248,10 @@ export default function Sidebar({ contacts, isLoading, onContactsChange }: Sideb
 
             {/* Footer */}
             <div className="p-4 border-t border-dark-border">
-                <p className="text-[10px] text-slate-muted/50 text-center">
-                    Cyber Pidgeon v1.0 • Built for students
-                </p>
+                <div className="flex items-center justify-center gap-2 mb-1 opacity-50">
+                    <img src="/logo.png" alt="" className="w-4 h-4 object-contain" />
+                    <span className="text-[10px] font-bold tracking-wider">CYBER PIDGEON</span>
+                </div>
             </div>
         </aside>
     );

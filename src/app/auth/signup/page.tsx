@@ -121,9 +121,9 @@ export default function SignUpPage() {
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
                             transition={{ type: 'spring', delay: 0.2 }}
-                            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-electric-purple/10 mb-4"
+                            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-electric-purple/10 mb-4 shadow-[0_0_15px_rgba(157,0,255,0.2)]"
                         >
-                            <span className="text-3xl">🐦</span>
+                            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
                         </motion.div>
                         <h1 className="text-2xl font-bold text-pure-white neon-text">
                             Join Cyber Pidgeon
